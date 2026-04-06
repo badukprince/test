@@ -212,6 +212,22 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
                 for r, c in occupied_coords:
                     board_matrix[r][c] = top_major if r <= 3 else bottom_major
 
+    # Opening-like fallback:
+    # If pieces are concentrated on top/bottom bands and mixed labels still remain,
+    # force consistent top/bottom color by average piece brightness per band.
+    top_band = [(r, c) for r, c in occupied_coords if r <= 2]
+    bottom_band = [(r, c) for r, c in occupied_coords if r >= 5]
+    middle_band = [(r, c) for r, c in occupied_coords if 3 <= r <= 4]
+    if occupancy_count >= 24 and len(top_band) >= 10 and len(bottom_band) >= 10 and len(middle_band) <= 6:
+        top_mean = float(np.mean([piece_grays[r, c] for r, c in top_band]))
+        bottom_mean = float(np.mean([piece_grays[r, c] for r, c in bottom_band]))
+        top_color = "P" if top_mean > bottom_mean else "p"
+        bottom_color = "p" if top_color == "P" else "P"
+        for r, c in top_band:
+            board_matrix[r][c] = top_color
+        for r, c in bottom_band:
+            board_matrix[r][c] = bottom_color
+
     fen = _matrix_to_fen(board_matrix)
     note = (
         f"Detected {occupancy_count} occupied squares (cell background subtraction + contour/texture scoring). "
