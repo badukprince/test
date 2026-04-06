@@ -517,6 +517,34 @@ h1 {
   margin-bottom: 18px;
 }
 
+.count-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.count-card {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.count-card__label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.count-card__value {
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
 .block__head {
   display: flex;
   align-items: center;

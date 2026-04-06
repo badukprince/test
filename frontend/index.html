@@ -145,6 +145,24 @@
             </div>
 
             <div class="block">
+              <h3>기물 개수</h3>
+              <div class="count-grid">
+                <div class="count-card">
+                  <span class="count-card__label">전체</span>
+                  <span class="count-card__value" id="out-total-pieces">0</span>
+                </div>
+                <div class="count-card">
+                  <span class="count-card__label">백</span>
+                  <span class="count-card__value" id="out-white-pieces">0</span>
+                </div>
+                <div class="count-card">
+                  <span class="count-card__label">흑</span>
+                  <span class="count-card__value" id="out-black-pieces">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="block">
               <div class="block__head">
                 <h3>FEN</h3>
                 <button type="button" class="btn btn--small btn--ghost" id="btn-copy-fen">복사</button>
@@ -161,7 +179,12 @@
             </div>
 
             <div class="block">
-              <h3>근거</h3>
+              <h3>근거 (한국어)</h3>
+              <p class="reasoning" id="out-reasoning-ko"></p>
+            </div>
+
+            <div class="block">
+              <h3>Reasoning (English)</h3>
               <p class="reasoning" id="out-reasoning"></p>
             </div>
           </div>

@@ -67,3 +67,10 @@ def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
         advantage = "equal"
 
     return round(score, 2), advantage, reasoning_parts
+
+
+def get_piece_counts(fen: str) -> Tuple[int, int, int]:
+    board = chess.Board(fen)
+    white_count = sum(1 for p in board.piece_map().values() if p.color == chess.WHITE)
+    black_count = sum(1 for p in board.piece_map().values() if p.color == chess.BLACK)
+    return white_count + black_count, white_count, black_count

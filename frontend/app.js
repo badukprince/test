@@ -12,8 +12,12 @@ const els = {
   score: $("#out-score"),
   advantage: $("#out-advantage"),
   source: $("#out-source"),
+  totalPieces: $("#out-total-pieces"),
+  whitePieces: $("#out-white-pieces"),
+  blackPieces: $("#out-black-pieces"),
   fen: $("#out-fen"),
   board: $("#out-board"),
+  reasoningKo: $("#out-reasoning-ko"),
   reasoning: $("#out-reasoning"),
   btnCopyFen: $("#btn-copy-fen"),
   btnHealth: $("#btn-health"),
@@ -141,7 +145,11 @@ function renderResult(payload) {
   els.score.textContent = formatScore(payload.score);
   applyAdvantageStyles(payload.advantage);
   els.source.textContent = `출처: ${payload.source}`;
+  els.totalPieces.textContent = String(payload.total_pieces ?? 0);
+  els.whitePieces.textContent = String(payload.white_pieces ?? 0);
+  els.blackPieces.textContent = String(payload.black_pieces ?? 0);
   els.fen.textContent = payload.fen ?? "—";
+  els.reasoningKo.textContent = payload.reasoning_ko || payload.reasoning || "—";
   els.reasoning.textContent = payload.reasoning || "—";
   renderBoard(payload.board_matrix);
 }
