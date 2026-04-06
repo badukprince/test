@@ -17,7 +17,7 @@ permissions:
 jobs:
   ci-verify:
     name: CI Verify
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
 
     steps:
       - name: Checkout
@@ -38,33 +38,14 @@ jobs:
         run: python -m compileall .
 
       - name: API smoke test
-        run: |
-          python - <<'PY'
-          from fastapi.testclient import TestClient
-          from main import app
-
-          client = TestClient(app)
-          h = client.get("/health")
-          assert h.status_code == 200, h.text
-          assert h.json().get("status") == "ok", h.text
-
-          fen_payload = {
-              "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-          }
-          r = client.post("/analyze/fen", json=fen_payload)
-          assert r.status_code == 200, r.text
-          body = r.json()
-          for key in ["score", "advantage", "reasoning", "source"]:
-              assert key in body, body
-          print("Smoke checks passed")
-          PY
+        run: python -c "from fastapi.testclient import TestClient; from main import app; c=TestClient(app); h=c.get('/health'); assert h.status_code==200, h.text; assert h.json().get('status')=='ok', h.text; p={'fen':'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}; r=c.post('/analyze/fen', json=p); assert r.status_code==200, r.text; b=r.json(); assert all(k in b for k in ['score','advantage','reasoning','source']), b; print('Smoke checks passed')"
 
       - name: Docker build check
         run: docker build -t chess-analyzer-api:ci .
 
   docker-publish:
     name: Docker Publish
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Windows, X64]
     needs: ci-verify
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
 
