@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Opt in early to Node.js 24 runtime for JS-based actions.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   ci-verify:
     name: CI Verify
@@ -23,10 +27,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Verify local Python
+        run: python --version
 
       - name: Install dependencies
         run: |
