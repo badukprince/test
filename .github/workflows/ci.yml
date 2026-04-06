@@ -82,3 +82,50 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy-local:
+    name: Deploy On Local Host
+    runs-on: [self-hosted, Windows, X64]
+    needs: docker-publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/chess-analyzer-api:latest
+      CONTAINER_NAME: chess-analyzer
+      APP_PORT: "8000"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker login
+        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Pull latest image
+        run: docker pull $env:IMAGE_NAME
+
+      - name: Stop and remove existing container
+        shell: pwsh
+        run: |
+          $id = docker ps -aq -f "name=^$($env:CONTAINER_NAME)$"
+          if ($id) {
+            docker stop $env:CONTAINER_NAME
+            docker rm $env:CONTAINER_NAME
+          } else {
+            Write-Host "No existing container found: $env:CONTAINER_NAME"
+          }
+
+      - name: Run updated container
+        run: |
+          docker run -d `
+            --name $env:CONTAINER_NAME `
+            -p "$($env:APP_PORT):8000" `
+            --restart unless-stopped `
+            $env:IMAGE_NAME
+
+      - name: Health check
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 5
+          $res = Invoke-RestMethod -Uri "http://127.0.0.1:$($env:APP_PORT)/health" -Method Get
+          if ($res.status -ne "ok") { throw "Health check failed" }
+          Write-Host "Local deploy healthy: $($res.status)"

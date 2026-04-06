@@ -74,8 +74,22 @@ def _cell_features(inner_bgr: np.ndarray) -> Tuple[float, float, float, float, f
     std_gray = float(np.std(g))
 
     diff = np.linalg.norm(inner_bgr.astype(np.float32) - bg, axis=2)
-    diff_thr = max(18.0, float(np.percentile(diff, 72)))
-    fg_mask = diff > diff_thr
+    diff_thr = max(16.0, float(np.percentile(diff, 70)))
+    raw_mask = (diff > diff_thr).astype(np.uint8)
+
+    # Remove tiny texture dots and keep piece-like connected components.
+    raw_mask = cv2.morphologyEx(raw_mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=1)
+    raw_mask = cv2.morphologyEx(raw_mask, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8), iterations=1)
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(raw_mask, connectivity=8)
+    cleaned = np.zeros_like(raw_mask, dtype=np.uint8)
+    h, w = raw_mask.shape[:2]
+    min_area = max(10, int(h * w * 0.018))
+    for i in range(1, num_labels):
+        area = int(stats[i, cv2.CC_STAT_AREA])
+        if area >= min_area:
+            cleaned[labels == i] = 1
+
+    fg_mask = cleaned.astype(bool)
     fg_ratio = float(np.mean(fg_mask))
 
     bg_gray = float(np.mean(cv2.cvtColor(np.uint8([[bg]]), cv2.COLOR_BGR2GRAY)))
@@ -86,7 +100,7 @@ def _cell_features(inner_bgr: np.ndarray) -> Tuple[float, float, float, float, f
     piece_delta = piece_gray - bg_gray
 
     # Weighted score: plain square is almost constant; piece square has shape/textures.
-    score = std_gray + (lap_var / 120.0) + (12.0 * edge_density) + (2.0 * fg_ratio)
+    score = std_gray + (lap_var / 120.0) + (9.0 * edge_density) + (7.0 * fg_ratio)
     return score, fg_ratio, edge_density, piece_delta, piece_gray
 
 
@@ -172,7 +186,15 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
     flat = scores.reshape(-1)
     mad_thr = _mad_threshold(flat, k=2.6)
     otsu_thr = _otsu_threshold(flat)
-    threshold = min(mad_thr, otsu_thr)
+    p50 = float(np.percentile(flat, 50))
+    p60 = float(np.percentile(flat, 60))
+    if p50 > 5.0:
+        # Opening-like dense positions (many occupied squares):
+        # split high/low groups around the middle band.
+        threshold = max(otsu_thr, 0.5 * (p50 + p60))
+    else:
+        # Sparse positions: keep sensitivity for few pieces.
+        threshold = min(mad_thr, otsu_thr)
 
     board_matrix = _empty_board_matrix()
     occupancy_count = 0
@@ -180,7 +202,7 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
 
     for r in range(8):
         for c in range(8):
-            strong_fg = fg_ratios[r, c] > 0.13 and edge_densities[r, c] > 0.015
+            strong_fg = fg_ratios[r, c] > 0.06 and edge_densities[r, c] > 0.01
             if scores[r, c] > threshold or strong_fg:
                 occupancy_count += 1
                 occupied_coords.append((r, c))

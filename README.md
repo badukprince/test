@@ -146,6 +146,11 @@ docker run --rm -p 8000:8000 chess-analyzer-api
   - 위 CI 검증 실행
 - **push to `main` 또는 `v*` 태그**
   - CI 통과 후 Docker Hub 이미지 push (CD)
+- **push to `main` (self-hosted runner 실행 호스트)**
+  - Docker Hub 최신 이미지 pull
+  - 기존 `chess-analyzer` 컨테이너 중지/삭제
+  - 새 컨테이너 자동 실행(`--restart unless-stopped`)
+  - `/health` 자동 확인
 
 필요한 GitHub Secrets:
 
@@ -160,3 +165,9 @@ docker run --rm -p 8000:8000 chess-analyzer-api
 
 - 메인 배포: `main` 브랜치 push
 - 버전 배포: `git tag v1.0.0 && git push origin v1.0.0`
+
+로컬 자동 배포 전제 조건:
+
+- self-hosted runner가 배포 대상 로컬 PC에서 실행 중이어야 함
+- 로컬 PC에 Docker Desktop(또는 Docker Engine) 실행 중이어야 함
+- `8000` 포트를 다른 프로세스가 점유하지 않아야 함
