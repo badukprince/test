@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chess Analyzer</title>
+    <link rel="stylesheet" href="/static/ui/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <div class="header__brand">
+          <span class="logo" aria-hidden="true">♔</span>
+          <div>
+            <h1>Chess Analyzer</h1>
+            <p class="tagline">이미지 근사 추출 · FEN 보정 · 결정론적 평가</p>
+          </div>
+        </div>
+        <div class="header__actions">
+          <a class="link" href="/docs" target="_blank" rel="noopener">Swagger</a>
+          <span class="dot" aria-hidden="true"></span>
+          <button type="button" class="btn btn--ghost" id="btn-health">헬스 확인</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel panel--forms" aria-labelledby="panel-forms-title">
+          <h2 id="panel-forms-title" class="sr-only">분석 입력</h2>
+
+          <div class="tabs" role="tablist" aria-label="분석 모드">
+            <button type="button" class="tabs__btn is-active" role="tab" aria-selected="true" data-tab="combined">
+              통합 분석
+            </button>
+            <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-tab="fen">
+              FEN만
+            </button>
+            <button type="button" class="tabs__btn" role="tab" aria-selected="false" data-tab="image">
+              이미지만
+            </button>
+          </div>
+
+          <div class="tab-panels">
+            <div class="tab-panel is-active" id="panel-combined" role="tabpanel">
+              <p class="hint">권장: 이미지로 근사 추출 후, 필요하면 FEN으로 덮어씁니다.</p>
+              <form id="form-combined" class="form">
+                <label class="field">
+                  <span class="field__label">체스판 이미지 (선택)</span>
+                  <div class="dropzone" id="drop-combined" tabindex="0">
+                    <input type="file" id="file-combined" accept="image/*" />
+                    <div class="dropzone__text">
+                      <strong>클릭 또는 드래그</strong>
+                      <span>PNG, JPG 등 · top-down 보드</span>
+                    </div>
+                    <div class="dropzone__preview" id="preview-combined" hidden></div>
+                  </div>
+                </label>
+                <label class="field">
+                  <span class="field__label">FEN (선택)</span>
+                  <textarea
+                    id="fen-combined"
+                    rows="3"
+                    class="input input--mono"
+                    placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                    spellcheck="false"
+                  ></textarea>
+                </label>
+                <p class="field-note">이미지와 FEN 중 <strong>하나 이상</strong> 입력하세요.</p>
+                <button type="submit" class="btn btn--primary" id="submit-combined">분석 실행</button>
+              </form>
+            </div>
+
+            <div class="tab-panel" id="panel-fen" role="tabpanel" hidden>
+              <form id="form-fen" class="form">
+                <label class="field">
+                  <span class="field__label">FEN</span>
+                  <textarea
+                    id="fen-only"
+                    rows="4"
+                    class="input input--mono"
+                    required
+                    placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+                    spellcheck="false"
+                  ></textarea>
+                </label>
+                <button type="submit" class="btn btn--primary">FEN 분석</button>
+              </form>
+            </div>
+
+            <div class="tab-panel" id="panel-image" role="tabpanel" hidden>
+              <form id="form-image" class="form">
+                <label class="field">
+                  <span class="field__label">체스판 이미지</span>
+                  <div class="dropzone" id="drop-image" tabindex="0">
+                    <input type="file" id="file-image" accept="image/*" required />
+                    <div class="dropzone__text">
+                      <strong>클릭 또는 드래그</strong>
+                      <span>top-down 체스판</span>
+                    </div>
+                    <div class="dropzone__preview" id="preview-image" hidden></div>
+                  </div>
+                </label>
+                <button type="submit" class="btn btn--primary">이미지 분석</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel--results" aria-live="polite" aria-busy="false" id="results-section">
+          <div class="results__header">
+            <h2>결과</h2>
+            <span class="badge badge--muted" id="results-idle">대기 중</span>
+          </div>
+
+          <div id="results-loading" class="state state--loading" hidden>
+            <div class="spinner" aria-hidden="true"></div>
+            <p>분석 중…</p>
+          </div>
+
+          <div id="results-error" class="state state--error" hidden>
+            <p class="state__title">요청 실패</p>
+            <pre class="state__body" id="results-error-body"></pre>
+          </div>
+
+          <div id="results-empty" class="state state--empty">
+            <p>왼쪽에서 분석을 실행하면 점수, FEN, 보드 추정이 여기에 표시됩니다.</p>
+          </div>
+
+          <div id="results-data" hidden>
+            <div class="score-row">
+              <div class="score-card" id="score-card">
+                <span class="score-card__label">평가 점수</span>
+                <span class="score-card__value" id="out-score">+0.0</span>
+                <span class="score-card__hint">양수: 백 우세 · 음수: 흑 우세</span>
+              </div>
+              <div class="chips">
+                <span class="chip" id="out-advantage">equal</span>
+                <span class="chip chip--muted" id="out-source">source</span>
+              </div>
+            </div>
+
+            <div class="block">
+              <div class="block__head">
+                <h3>FEN</h3>
+                <button type="button" class="btn btn--small btn--ghost" id="btn-copy-fen">복사</button>
+              </div>
+              <pre class="fen-box" id="out-fen">—</pre>
+            </div>
+
+            <div class="block">
+              <h3>추정 보드 (8×8)</h3>
+              <p class="hint hint--tight">이미지 휴리스틱 결과입니다. 실전 보드와 다를 수 있습니다.</p>
+              <div class="board-wrap">
+                <div class="board" id="out-board" aria-label="추정 보드 그리드"></div>
+              </div>
+            </div>
+
+            <div class="block">
+              <h3>근거</h3>
+              <p class="reasoning" id="out-reasoning"></p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>API: <code>/analyze</code>, <code>/analyze/fen</code>, <code>/analyze/image</code></span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/static/ui/app.js" defer></script>
+  </body>
+</html>
