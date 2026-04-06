@@ -14,6 +14,7 @@ def _translate_reasoning_to_korean(text: str) -> str:
     replacements = [
         ("material score", "기물 점수"),
         ("center control bonus", "중앙 장악 보너스"),
+        ("positional bonus (center occupancy)", "위치 점수 보너스(중앙 점유)"),
         ("checkmate detected: white to move is mated", "체크메이트: 백 차례이며 백이 메이트 상태"),
         ("checkmate detected: black to move is mated", "체크메이트: 흑 차례이며 흑이 메이트 상태"),
         ("white king is in check", "백 킹이 체크 상태"),

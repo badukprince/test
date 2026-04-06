@@ -14,6 +14,20 @@ PIECE_VALUES: Dict[int, float] = {
 }
 
 CENTER_SQUARES = [chess.D4, chess.E4, chess.D5, chess.E5]
+NEAR_CENTER_SQUARES = [
+    chess.C3,
+    chess.D3,
+    chess.E3,
+    chess.F3,
+    chess.C4,
+    chess.F4,
+    chess.C5,
+    chess.F5,
+    chess.C6,
+    chess.D6,
+    chess.E6,
+    chess.F6,
+]
 
 
 def _material_score(board: chess.Board) -> float:
@@ -33,6 +47,28 @@ def _center_control_score(board: chess.Board) -> float:
     return score
 
 
+def _positional_square_score(board: chess.Board) -> float:
+    """
+    Lightweight positional term:
+    reward occupying central and near-central squares.
+    """
+    score = 0.0
+
+    for square in CENTER_SQUARES:
+        piece = board.piece_at(square)
+        if piece is None:
+            continue
+        score += 0.30 if piece.color == chess.WHITE else -0.30
+
+    for square in NEAR_CENTER_SQUARES:
+        piece = board.piece_at(square)
+        if piece is None:
+            continue
+        score += 0.12 if piece.color == chess.WHITE else -0.12
+
+    return score
+
+
 def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
     board = chess.Board(fen)
     reasoning_parts: List[str] = []
@@ -43,6 +79,10 @@ def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
     center_score = _center_control_score(board)
     score += center_score
     reasoning_parts.append(f"center control bonus: {center_score:+.2f}")
+
+    positional_score = _positional_square_score(board)
+    score += positional_score
+    reasoning_parts.append(f"positional bonus (center occupancy): {positional_score:+.2f}")
 
     if board.is_checkmate():
         if board.turn == chess.WHITE:
