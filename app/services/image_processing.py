@@ -56,13 +56,13 @@ def _estimate_square_bg(inner_bgr: np.ndarray) -> np.ndarray:
     return np.median(stacked, axis=0).astype(np.float32)
 
 
-def _cell_features(inner_bgr: np.ndarray) -> Tuple[float, float, float, float]:
+def _cell_features(inner_bgr: np.ndarray) -> Tuple[float, float, float, float, float]:
     """
     Returns:
-      (occupancy_score, foreground_ratio, edge_density, piece_brightness_delta)
+      (occupancy_score, foreground_ratio, edge_density, piece_brightness_delta, piece_gray_abs)
     """
     if inner_bgr.size == 0:
-        return 0.0, 0.0, 0.0, 0.0
+        return 0.0, 0.0, 0.0, 0.0, 0.0
 
     bg = _estimate_square_bg(inner_bgr)
     gray = cv2.cvtColor(inner_bgr, cv2.COLOR_BGR2GRAY)
@@ -87,7 +87,7 @@ def _cell_features(inner_bgr: np.ndarray) -> Tuple[float, float, float, float]:
 
     # Weighted score: plain square is almost constant; piece square has shape/textures.
     score = std_gray + (lap_var / 120.0) + (12.0 * edge_density) + (2.0 * fg_ratio)
-    return score, fg_ratio, edge_density, piece_delta
+    return score, fg_ratio, edge_density, piece_delta, piece_gray
 
 
 def _mad_threshold(scores: np.ndarray, k: float = 3.2) -> float:
@@ -110,6 +110,34 @@ def _otsu_threshold(scores: np.ndarray) -> float:
     return min_v + (max_v - min_v) * (float(otsu_v) / 255.0)
 
 
+def _split_two_clusters(values: np.ndarray) -> float:
+    """
+    1D two-cluster split for piece brightness.
+    Returns threshold between dark and bright clusters.
+    """
+    if values.size == 0:
+        return 130.0
+    if values.size == 1:
+        return float(values[0])
+
+    a = float(np.min(values))
+    b = float(np.max(values))
+    if abs(b - a) < 1e-6:
+        return a
+
+    for _ in range(12):
+        ta = values[np.abs(values - a) <= np.abs(values - b)]
+        tb = values[np.abs(values - a) > np.abs(values - b)]
+        if ta.size:
+            a = float(np.mean(ta))
+        if tb.size:
+            b = float(np.mean(tb))
+        if abs(a - b) < 1e-3:
+            break
+    lo, hi = sorted((a, b))
+    return (lo + hi) * 0.5
+
+
 def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]], Optional[str], str]:
     np_arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
@@ -126,6 +154,7 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
     fg_ratios = np.zeros((8, 8), dtype=np.float64)
     edge_densities = np.zeros((8, 8), dtype=np.float64)
     piece_deltas = np.zeros((8, 8), dtype=np.float64)
+    piece_grays = np.zeros((8, 8), dtype=np.float64)
 
     for r in range(8):
         for c in range(8):
@@ -133,11 +162,12 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
             x1, x2 = c * cell_w, (c + 1) * cell_w
             cell_bgr = img[y1:y2, x1:x2]
             inner = _crop_inner_roi(cell_bgr, margin_ratio=0.16)
-            sc, fr, ed, pd = _cell_features(inner)
+            sc, fr, ed, pd, pg = _cell_features(inner)
             scores[r, c] = sc
             fg_ratios[r, c] = fr
             edge_densities[r, c] = ed
             piece_deltas[r, c] = pd
+            piece_grays[r, c] = pg
 
     flat = scores.reshape(-1)
     mad_thr = _mad_threshold(flat, k=2.6)
@@ -146,20 +176,45 @@ def extract_board_from_image_bytes(image_bytes: bytes) -> Tuple[List[List[str]],
 
     board_matrix = _empty_board_matrix()
     occupancy_count = 0
+    occupied_coords: List[Tuple[int, int]] = []
 
     for r in range(8):
         for c in range(8):
             strong_fg = fg_ratios[r, c] > 0.13 and edge_densities[r, c] > 0.015
             if scores[r, c] > threshold or strong_fg:
                 occupancy_count += 1
-                board_matrix[r][c] = "P" if piece_deltas[r, c] >= 0 else "p"
+                occupied_coords.append((r, c))
 
     if occupancy_count == 0:
         return board_matrix, None, "No clear pieces detected from image heuristic"
 
+    # Color estimation:
+    # use piece brightness clustering among occupied cells to avoid square-color flipping.
+    occ_gray_values = np.array([piece_grays[r, c] for r, c in occupied_coords], dtype=np.float64)
+    color_thr = _split_two_clusters(occ_gray_values)
+    for r, c in occupied_coords:
+        board_matrix[r][c] = "P" if piece_grays[r, c] >= color_thr else "p"
+
+    # Half-board majority correction:
+    # chess screenshots often place one side mainly on top half and the other on bottom half.
+    # This fixes alternating mislabels caused by square color contrast.
+    if occupancy_count >= 20:
+        top_cells = [board_matrix[r][c] for r, c in occupied_coords if r <= 3]
+        bottom_cells = [board_matrix[r][c] for r, c in occupied_coords if r >= 4]
+        if len(top_cells) >= 6 and len(bottom_cells) >= 6:
+            top_white = sum(1 for x in top_cells if x == "P")
+            top_black = len(top_cells) - top_white
+            bottom_white = sum(1 for x in bottom_cells if x == "P")
+            bottom_black = len(bottom_cells) - bottom_white
+            top_major = "P" if top_white >= top_black else "p"
+            bottom_major = "P" if bottom_white >= bottom_black else "p"
+            if top_major != bottom_major:
+                for r, c in occupied_coords:
+                    board_matrix[r][c] = top_major if r <= 3 else bottom_major
+
     fen = _matrix_to_fen(board_matrix)
     note = (
         f"Detected {occupancy_count} occupied squares (cell background subtraction + contour/texture scoring). "
-        "Piece letters are light/dark approximations, not exact piece classification."
+        "Piece colors are inferred by global brightness clustering of detected pieces."
     )
     return board_matrix, fen, note
