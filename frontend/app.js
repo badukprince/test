@@ -11,6 +11,7 @@ const els = {
   scoreCard: $("#score-card"),
   score: $("#out-score"),
   advantage: $("#out-advantage"),
+  tactical: $("#out-tactical"),
   source: $("#out-source"),
   totalPieces: $("#out-total-pieces"),
   whitePieces: $("#out-white-pieces"),
@@ -136,6 +137,23 @@ function applyAdvantageStyles(advantage) {
   }
 }
 
+function applyTacticalStatus(payload) {
+  els.tactical.classList.remove("chip--warn", "chip--danger");
+  if (payload.is_checkmate) {
+    const side = payload.check_side === "white" ? "백" : payload.check_side === "black" ? "흑" : "?";
+    els.tactical.textContent = `체크메이트 (${side})`;
+    els.tactical.classList.add("chip--danger");
+    return;
+  }
+  if (payload.is_check) {
+    const side = payload.check_side === "white" ? "백" : payload.check_side === "black" ? "흑" : "?";
+    els.tactical.textContent = `체크 (${side})`;
+    els.tactical.classList.add("chip--warn");
+    return;
+  }
+  els.tactical.textContent = "정상";
+}
+
 function renderResult(payload) {
   els.empty.hidden = true;
   els.error.hidden = true;
@@ -144,6 +162,7 @@ function renderResult(payload) {
 
   els.score.textContent = formatScore(payload.score);
   applyAdvantageStyles(payload.advantage);
+  applyTacticalStatus(payload);
   els.source.textContent = `출처: ${payload.source}`;
   els.totalPieces.textContent = String(payload.total_pieces ?? 0);
   els.whitePieces.textContent = String(payload.white_pieces ?? 0);

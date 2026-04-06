@@ -69,9 +69,14 @@ def _positional_square_score(board: chess.Board) -> float:
     return score
 
 
-def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
+def evaluate_fen(fen: str) -> Tuple[float, str, List[str], Dict[str, str | bool]]:
     board = chess.Board(fen)
     reasoning_parts: List[str] = []
+    status: Dict[str, str | bool] = {
+        "is_check": False,
+        "is_checkmate": False,
+        "check_side": "none",
+    }
 
     score = _material_score(board)
     reasoning_parts.append(f"material score: {score:+.2f}")
@@ -85,19 +90,25 @@ def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
     reasoning_parts.append(f"positional bonus (center occupancy): {positional_score:+.2f}")
 
     if board.is_checkmate():
+        status["is_checkmate"] = True
         if board.turn == chess.WHITE:
             score = -settings.checkmate_score
             reasoning_parts.append("checkmate detected: white to move is mated")
+            status["check_side"] = "white"
         else:
             score = settings.checkmate_score
             reasoning_parts.append("checkmate detected: black to move is mated")
+            status["check_side"] = "black"
     elif board.is_check():
+        status["is_check"] = True
         if board.turn == chess.WHITE:
             score -= settings.check_bonus
             reasoning_parts.append("white king is in check")
+            status["check_side"] = "white"
         else:
             score += settings.check_bonus
             reasoning_parts.append("black king is in check")
+            status["check_side"] = "black"
 
     if score > 0.3:
         advantage = "white"
@@ -106,7 +117,7 @@ def evaluate_fen(fen: str) -> Tuple[float, str, List[str]]:
     else:
         advantage = "equal"
 
-    return round(score, 2), advantage, reasoning_parts
+    return round(score, 2), advantage, reasoning_parts, status
 
 
 def get_piece_counts(fen: str) -> Tuple[int, int, int]:

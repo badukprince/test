@@ -15,6 +15,9 @@ class AnalysisResponse(BaseModel):
     total_pieces: int = Field(..., description="Total piece count on board")
     white_pieces: int = Field(..., description="White piece count")
     black_pieces: int = Field(..., description="Black piece count")
+    is_check: bool = Field(..., description="Whether side-to-move is currently in check")
+    is_checkmate: bool = Field(..., description="Whether current position is checkmate")
+    check_side: str = Field(..., description="white | black | none")
     fen: Optional[str] = Field(default=None, description="Final FEN used for analysis")
     board_matrix: Optional[List[List[str]]] = Field(
         default=None, description="8x8 board representation from image heuristic"

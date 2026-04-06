@@ -513,6 +513,18 @@ h1 {
   border-color: transparent;
 }
 
+.chip--warn {
+  color: #7a1f00;
+  background: rgba(251, 191, 36, 0.55);
+  border-color: transparent;
+}
+
+.chip--danger {
+  color: #7f1d1d;
+  background: rgba(251, 113, 133, 0.58);
+  border-color: transparent;
+}
+
 .block {
   margin-bottom: 18px;
 }

@@ -56,13 +56,16 @@ async def analyze_image(image: UploadFile = File(...)) -> AnalysisResponse:
             total_pieces=total,
             white_pieces=white,
             black_pieces=black,
+            is_check=False,
+            is_checkmate=False,
+            check_side="none",
             fen=None,
             board_matrix=board_matrix,
             source="image",
         )
 
     try:
-        score, advantage, reasoning = evaluate_fen(extracted_fen)
+        score, advantage, reasoning, status = evaluate_fen(extracted_fen)
         total, white, black = get_piece_counts(extracted_fen)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Extracted FEN invalid: {exc}") from exc
@@ -76,6 +79,9 @@ async def analyze_image(image: UploadFile = File(...)) -> AnalysisResponse:
         total_pieces=total,
         white_pieces=white,
         black_pieces=black,
+        is_check=bool(status["is_check"]),
+        is_checkmate=bool(status["is_checkmate"]),
+        check_side=str(status["check_side"]),
         fen=extracted_fen,
         board_matrix=board_matrix,
         source="image",
@@ -85,7 +91,7 @@ async def analyze_image(image: UploadFile = File(...)) -> AnalysisResponse:
 @router.post("/fen", response_model=AnalysisResponse)
 def analyze_fen(payload: FenAnalyzeRequest) -> AnalysisResponse:
     try:
-        score, advantage, reasoning = evaluate_fen(payload.fen)
+        score, advantage, reasoning, status = evaluate_fen(payload.fen)
         total, white, black = get_piece_counts(payload.fen)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid FEN: {exc}") from exc
@@ -99,6 +105,9 @@ def analyze_fen(payload: FenAnalyzeRequest) -> AnalysisResponse:
         total_pieces=total,
         white_pieces=white,
         black_pieces=black,
+        is_check=bool(status["is_check"]),
+        is_checkmate=bool(status["is_checkmate"]),
+        check_side=str(status["check_side"]),
         fen=payload.fen,
         board_matrix=None,
         source="fen",
@@ -131,7 +140,7 @@ async def analyze_combined(
         raise HTTPException(status_code=400, detail="Either image or fen must be provided")
 
     try:
-        score, advantage, reasoning = evaluate_fen(final_fen)
+        score, advantage, reasoning, status = evaluate_fen(final_fen)
         total, white, black = get_piece_counts(final_fen)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Invalid FEN: {exc}") from exc
@@ -148,6 +157,9 @@ async def analyze_combined(
         total_pieces=total,
         white_pieces=white,
         black_pieces=black,
+        is_check=bool(status["is_check"]),
+        is_checkmate=bool(status["is_checkmate"]),
+        check_side=str(status["check_side"]),
         fen=final_fen,
         board_matrix=board_matrix,
         source="+".join(source) if source else "fen",
