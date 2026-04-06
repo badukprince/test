@@ -104,7 +104,7 @@ jobs:
         run: docker pull $env:IMAGE_NAME
 
       - name: Stop and remove existing container
-        shell: pwsh
+        shell: powershell
         run: |
           $id = docker ps -aq -f "name=^$($env:CONTAINER_NAME)$"
           if ($id) {
@@ -123,7 +123,7 @@ jobs:
             $env:IMAGE_NAME
 
       - name: Health check
-        shell: pwsh
+        shell: powershell
         run: |
           Start-Sleep -Seconds 5
           $res = Invoke-RestMethod -Uri "http://127.0.0.1:$($env:APP_PORT)/health" -Method Get
